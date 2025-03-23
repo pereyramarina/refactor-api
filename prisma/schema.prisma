@@ -1,0 +1,131 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+//> 1. Zonas --------------------------------------------------------->
+model City {
+  id            String         @id @default(uuid()) @db.Uuid
+  id_visible    Int?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+  deleted       Boolean        @default(false)
+  active        Boolean        @default(true)
+  uploadUserID  String?        @db.Uuid
+  uploadUser    User?          @relation(fields: [uploadUserID], references: [id])
+  name          String
+  neighborhoods Neighborhood[]
+  userCity      UserCity[]
+
+  @@index([active])
+  @@index([deleted])
+  @@map("city")
+}
+
+model Neighborhood {
+  id           String    @id @default(uuid()) @db.Uuid
+  id_visible   Int?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  deleted      Boolean   @default(false)
+  active       Boolean   @default(true)
+  uploadUserID String?   @db.Uuid
+  uploadUser   User?     @relation(fields: [uploadUserID], references: [id])
+  name         String?
+  claims       Claim[]
+  zoneID       String?   @db.Uuid
+  coordinates  String[] // Coordenadas para marcar los puntos del polígono que lo rodea
+  city         City?     @relation(fields: [cityID], references: [id])
+  cityID       String?   @db.Uuid
+
+  @@index([deleted])
+  @@index([active])
+  @@map("neighborhood")
+}
+
+model Claim {
+  id             String        @id @default(uuid()) @db.Uuid
+  id_visible     Int?
+  closeAt        DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+  deleted        Boolean       @default(false)
+  active         Boolean       @default(true)
+  uploadUserID   String?       @db.Uuid
+  uploadUser     User?         @relation(fields: [uploadUserID], references: [id])
+  direction      String?
+  clientLastName String?
+  clientName     String?
+  clientCount    String?
+  phone          String?
+  description    String?       @db.Text()
+  claimTypeID    String?       @db.Uuid
+  neighborhoodID String?       @db.Uuid
+  neighborhood   Neighborhood? @relation(fields: [neighborhoodID], references: [id])
+  workerID       String?       @db.Uuid
+  tasks          String?       @db.Text
+
+  @@index([deleted])
+  @@index([active])
+  @@map("claim")
+}
+
+//> 5. Administración ------------------------------------------------------>
+model User {
+  id                   String         @id @default(uuid()) @db.Uuid
+  id_visible           Int?
+  username             String?        @unique
+  mail                 String?        @unique
+  password             String?
+  name                 String?
+  last_name            String?
+  old_password         String?
+  otp                  Boolean        @default(true)
+  root                 Boolean        @default(false)
+  createdBy            User?          @relation("CreatedUser", fields: [id_user], references: [id])
+  id_user              String?        @db.Uuid
+  users                User[]         @relation("CreatedUser")
+  deleted              Boolean        @default(false)
+  active               Boolean        @default(true)
+  createdDate          DateTime       @default(now())
+  deletedDate          DateTime?
+  uploadedClaims       Claim[]
+  uploadedNeighborhood Neighborhood[]
+  uploadedCities       City[]
+  rol                  Rol            @default(Supervision)
+  userCity             UserCity[]
+
+  @@index([deleted])
+  @@index([active])
+  @@map("user")
+}
+
+model UserCity {
+  userID String @db.Uuid
+  user   User   @relation(fields: [userID], references: [id])
+  cityID String @db.Uuid
+  city   City   @relation(fields: [cityID], references: [id])
+
+  @@id([userID, cityID])
+  @@map("user_city")
+}
+
+enum Rol {
+  Gerencia // Read write
+  Supervision // Write
+  Operador // Write
+}
