@@ -14,12 +14,12 @@ import { CreateCityDto } from './create-city.dto';
 import { CityPaginatorDto } from './city-paginator.dto';
 import { Owner } from '@/common/decorators/user.decorator';
 import { Prisma, PrismaClient } from '@prisma/client';
+import { UserPaginator } from '@/users/user.paginator.dto'; // Se importa el paginator de usuario
 
 @Controller('city')
 export class CityController
   extends PrismaClient
-  implements OnModuleInit, OnModuleDestroy
-{
+  implements OnModuleInit, OnModuleDestroy {
   onModuleInit() {
     this.$connect();
   }
@@ -29,12 +29,12 @@ export class CityController
   }
 
   @Post()
-  async create(@Body() data: CreateCityDto, @Owner() usuario: any) {
+  async create(@Body() data: CreateCityDto, @Owner() usuario: UserPaginator /* Se especifica el tipo  */) {
     return this.city.create({
       data: {
         id_visible: (await this.city.count()) + 1,
         ...data,
-        uploadUserID: usuario.id,
+        uploadUserID: usuario.id.toString(), //  Convertido a string
       },
       include: {
         uploadUser: {
@@ -45,25 +45,27 @@ export class CityController
   }
 
   @Get()
-  async findAll(@Query() p: CityPaginatorDto) {
+  async findAll(@Query() /* // Damos un nombre descriptivo al parametro */ city: CityPaginatorDto) {
     let where: Prisma.CityWhereInput = { deleted: false };
 
-    if (p.id) where = { ...where, id: p.id };
-    if (p.active != undefined) where = { ...where, active: p.active };
+    if (city.id) where = { ...where, id: city.id };
+    if (city.active != undefined) where = { ...where, active: city.active };
 
-    // Hacemos un count de los registros (con filtro)
-    const t = await this.city.count({ where });
+    // Hacemos un count de los registros ´´con filtro´´
+    // Se cambio el nombre de la constante para que sea más descriptivo
+    const total_citys = await this.city.count({ where });
+
     // Calculamos la última página
-    const l = Math.ceil(t / p.perPage);
+    const last_pages = Math.ceil(total_citys / city.perPage);
 
     const data = await this.city.findMany({
       where,
-      skip: p.page && p.perPage ? (p.page - 1) * p.perPage : undefined,
-      take: p.page && p.perPage ? p.perPage : undefined,
-      orderBy: p.sortBy
+      skip: city.page && city.perPage ? (city.page - 1) * city.perPage : undefined,
+      take: city.page && city.perPage ? city.perPage : undefined,
+      orderBy: city.sortBy
         ? {
-            [p.sortByProperty ? p.sortByProperty : 'id_visible']: p.sortBy,
-          }
+          [city.sortByProperty ? city.sortByProperty : 'id_visible']: city.sortBy,
+        }
         : undefined,
       include: {
         uploadUser: {
@@ -76,15 +78,15 @@ export class CityController
     return {
       data,
       metadata:
-        p.page && p.perPage
+        city.page && city.perPage
           ? {
-              page: p.page,
-              totalRecords: t,
-              lastPage: l,
-            }
+            page: city.page,
+            totalRecords: total_citys,
+            lastPage: last_pages,
+          }
           : {
-              totalRecords: t,
-            },
+            totalRecords: total_citys,
+          },
     };
   }
 

@@ -21,6 +21,16 @@ import { ClaimPaginatorDto } from './claim-paginator.dto';
 import { CreateClaimDto } from './create-claim.dto';
 import { Owner } from '@/common/decorators/user.decorator';
 
+/**
+ * Interface para ciudad
+ */
+export interface ICity {
+  id: string;
+  city: string;
+  value: number
+}
+
+
 export interface Data {
   value: number;
   data: {
@@ -34,8 +44,7 @@ export interface Data {
 @Controller('claim')
 export class ClaimController
   extends PrismaClient
-  implements OnModuleInit, OnModuleDestroy
-{
+  implements OnModuleInit, OnModuleDestroy {
   onModuleInit() {
     this.$connect();
   }
@@ -48,14 +57,14 @@ export class ClaimController
   @Get('claim-location')
   async getReportByCity(@Query() paginator: ClaimPaginatorDto) {
     const { from, to, cityIDs } = paginator;
-    const f = new Date(from.setHours(0, 0, 0, 0));
-    const t = new Date(to.setHours(23, 59, 59, 999));
+    const newFrom = new Date(from.setHours(0, 0, 0, 0)); // Se cambio el nombre de la constante para que sea más descriptivo
+    const newTo = new Date(to.setHours(23, 59, 59, 999)); // Se cambio el nombre de la constante para que sea más descriptivo
 
     const result = await this.claim.findMany({
       where: {
         active: true,
         deleted: false,
-        createdAt: { gte: f, lte: t },
+        createdAt: { gte: newFrom, lte: newTo },
         neighborhood: { city: { id: { in: cityIDs } } },
       },
       include: {
@@ -63,35 +72,44 @@ export class ClaimController
       },
     });
 
-    const a: {
+    // Se cambio nombre de la variable para que sea más descriptivo
+    const report: {
       id: string;
-      cities: { id: string; city: string; value: number }[];
+      cities: ICity[]; // Se implementa el uso de la interfaz ICity
     }[] = [];
 
     result.forEach((claim) => {
-      let n = a.findIndex((i) => i.id == claim.neighborhood.id);
-      if (n < 0) {
+      // Se a cambiado de la variable para que sea más descriptivo
+      // Se a cambiado de la variable dentro del metodo findIndex para que sea más descriptivo
+      let index_neighborhood = report.findIndex((item) => item.id == claim.neighborhood.id);
+      if (index_neighborhood < 0) {
         let item = {
           id: claim.neighborhood.id,
           cities: [],
         };
-        a.push(item);
-        n = a.length - 1;
+        report.push(item);
+        index_neighborhood = report.length - 1;
       }
-      let c = a[n].cities.findIndex((i) => i.id == claim.neighborhood.city.id);
-      if (c < 0) {
-        const item = {
+
+      // Se a cambiado el nombre de la variable para que sea más descriptivo
+      // Se a cambiado el nombre de la variable dentro del metodo findIndex para que sea más descriptivo y uso la interfaz ICity
+      let index_city = report[index_neighborhood].cities.findIndex((city: ICity) => city.id == claim.neighborhood.city.id);
+
+      if (index_city < 0) {
+        // J: Cambié el nombre de la variable para que sea más descriptivo y uso la interfaz ICity
+        const newCity: ICity = {
           id: claim.neighborhood.city.id,
           city: claim.neighborhood.city.name,
           value: 0,
         };
-        a[n].cities.push(item);
-        c = a[n].cities.length - 1;
+
+        report[index_neighborhood].cities.push(newCity);
+        index_city = report[index_neighborhood].cities.length - 1;
       }
-      a[n].cities[c].value += 1;
+      report[index_neighborhood].cities[index_city].value += 1;
     });
 
-    return a;
+    return report;
   }
   //# Estadísticas -------------------------------------->
 
@@ -134,74 +152,74 @@ export class ClaimController
   }
 
   @Get()
-  async findAll(@Query() p: ClaimPaginatorDto) {
+  async findAll(@Query() param: ClaimPaginatorDto) {
     let where: Prisma.ClaimWhereInput = { deleted: false };
     let skip;
     let take;
     let orderBy;
     let metadata;
 
-    if (p.id) where = { ...where, id: p.id };
-    if (p.id_visible) where = { ...where, id_visible: p.id_visible };
-    if (p.claimType)
+    if (param.id) where = { ...where, id: param.id };
+    if (param.id_visible) where = { ...where, id_visible: param.id_visible };
+    if (param.claimType)
       where = {
         ...where,
       };
-    if (p.neighborhood)
+    if (param.neighborhood)
       where = {
         ...where,
         neighborhood: {
           name: {
-            contains: p.neighborhood,
+            contains: param.neighborhood,
             mode: 'insensitive',
           },
         },
       };
 
-    if (p.clientName)
+    if (param.clientName)
       where = {
         ...where,
         clientName: {
-          contains: p.clientName,
+          contains: param.clientName,
           mode: 'insensitive',
         },
       };
-    if (p.client_lastName)
+    if (param.client_lastName)
       where = {
         ...where,
         clientLastName: {
-          contains: p.client_lastName,
+          contains: param.client_lastName,
           mode: 'insensitive',
         },
       };
 
-    if (p.phone)
+    if (param.phone)
       where = {
         ...where,
         phone: {
-          contains: p.phone,
+          contains: param.phone,
           mode: 'insensitive',
         },
       };
-    if (p.clientCount)
+    if (param.clientCount)
       where = {
         ...where,
         clientCount: {
-          contains: p.clientCount,
+          contains: param.clientCount,
           mode: 'insensitive',
         },
       };
     where = {
       ...where,
       direction: {
-        contains: p.direction,
+        contains: param.direction,
         mode: 'insensitive',
       },
     };
 
-    if (p.createdAt) {
-      const from = new Date(p.createdAt.setHours(0, 0, 0, 0));
-      const to = new Date(p.createdAt.setHours(23, 59, 59, 999));
+    if (param.createdAt) {
+      const from = new Date(param.createdAt.setHours(0, 0, 0, 0));
+      const to = new Date(param.createdAt.setHours(23, 59, 59, 999));
       where = {
         ...where,
         createdAt: {
@@ -211,44 +229,44 @@ export class ClaimController
       };
     }
 
-    if (p.active != undefined) where = { ...where, active: p.active };
+    if (param.active != undefined) where = { ...where, active: param.active };
 
-    if (p.cityIDs)
+    if (param.cityIDs)
       where = {
         ...where,
         neighborhood: {
-          name: p.neighborhood
+          name: param.neighborhood
             ? {
-                contains: p.neighborhood,
-                mode: 'insensitive',
-              }
+              contains: param.neighborhood,
+              mode: 'insensitive',
+            }
             : undefined,
           city: {
             OR: [
               {
                 name: {
-                  contains: p.cityIDs[0],
+                  contains: param.cityIDs[0],
                   mode: 'insensitive',
                 },
               },
-              { id: { in: p.cityIDs } },
+              { id: { in: param.cityIDs } },
             ],
           },
         },
       };
 
-    // Hacemos un count de los registros (con filtro)
+    // Hacemos un count de los registros ´´con filtro´´
     const totalRecords = await this.claim.count({ where });
     // Calculamos la última página
-    const lastPage = Math.ceil(totalRecords / p.perPage);
-    if (p.page && p.perPage) {
-      skip = (p.page - 1) * p.perPage;
-      take = p.perPage;
+    const lastPage = Math.ceil(totalRecords / param.perPage);
+    if (param.page && param.perPage) {
+      skip = (param.page - 1) * param.perPage;
+      take = param.perPage;
     }
 
-    if (p.sortBy)
+    if (param.sortBy)
       orderBy = {
-        [p.sortByProperty ? p.sortByProperty : 'id_visible']: p.sortBy,
+        [param.sortByProperty ? param.sortByProperty : 'id_visible']: param.sortBy,
       };
     const data = await this.claim.findMany({
       where,
@@ -264,15 +282,15 @@ export class ClaimController
     });
 
     // Definimos los metadatos extras
-    if (p.page && p.perPage) {
-      //! Si hay un paginator activo
+    if (param.page && param.perPage) {
+      // Si hay un paginator activo
       metadata = {
-        page: p.page,
+        page: param.page,
         totalRecords,
         lastPage,
       };
     } else {
-      //! O se trajeron los datos completos
+      //O se trajeron los datos completos
       metadata = {
         totalRecords,
       };

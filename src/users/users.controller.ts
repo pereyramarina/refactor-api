@@ -21,8 +21,7 @@ import * as bcrypt from 'bcrypt';
 @Controller('users')
 export class UsersController
   extends PrismaClient
-  implements OnModuleInit, OnModuleDestroy
-{
+  implements OnModuleInit, OnModuleDestroy {
   onModuleInit() {
     this.$connect();
   }
@@ -32,7 +31,7 @@ export class UsersController
   }
 
   @Get()
-  async findAll(@Query() p: UserPaginator) {
+  async findAll(@Query() param: UserPaginator) {
     let where: Prisma.UserWhereInput = { deleted: false };
 
     let skip;
@@ -41,35 +40,35 @@ export class UsersController
     let metadata;
 
     // Definimos los parámetros de filtro --------------------------->
-    if (p.name) {
+    if (param.name) {
       where = {
         ...where,
         OR: [
-          { name: { contains: p.name, mode: 'insensitive' } },
-          { last_name: { contains: p.name, mode: 'insensitive' } },
+          { name: { contains: param.name, mode: 'insensitive' } },
+          { last_name: { contains: param.name, mode: 'insensitive' } },
         ],
       };
     }
-    if (p.id) {
-      where = { ...where, id_visible: p.id };
+    if (param.id) {
+      where = { ...where, id_visible: param.id };
     }
-    if (p.mail) where = { ...where, mail: { contains: p.mail } };
-    if (p.username) where = { ...where, username: { contains: p.username } };
-    if (p.active !== undefined) where = { ...where, active: p.active };
-    if (p.root) where = { ...where, root: p.root };
+    if (param.mail) where = { ...where, mail: { contains: param.mail } };
+    if (param.username) where = { ...where, username: { contains: param.username } };
+    if (param.active !== undefined) where = { ...where, active: param.active };
+    if (param.root) where = { ...where, root: param.root };
     // Definimos los parámetros de filtro --------------------------->
     // Hacemos un count de los registros (con filtro)
     const totalRecords = await this.user.count({ where });
     // Calculamos la última página
-    const lastPage = Math.ceil(totalRecords / p.perPage);
+    const lastPage = Math.ceil(totalRecords / param.perPage);
     // En caso de usar el paginator
-    if (p.page && p.perPage) {
-      skip = (p.page - 1) * p.perPage;
-      take = p.perPage;
+    if (param.page && param.perPage) {
+      skip = (param.page - 1) * param.perPage;
+      take = param.perPage;
     }
     // Y si se hace el ordenar por
-    if (p.sortBy)
-      orderBy = { [p.sortByProperty ? p.sortByProperty : 'id']: p.sortBy };
+    if (param.sortBy)
+      orderBy = { [param.sortByProperty ? param.sortByProperty : 'id']: param.sortBy };
     // Traemos los datos
     const data = await this.user.findMany({
       where,
@@ -84,15 +83,15 @@ export class UsersController
       },
     });
     // Definimos los metadatos extras
-    if (p.page && p.perPage) {
-      //! Si hay un paginator activo
+    if (param.page && param.perPage) {
+      // Si hay un paginator activo
       metadata = {
-        page: p.page,
+        page: param.page,
         totalRecords,
         lastPage,
       };
     } else {
-      //! O se trajeron los datos completos
+      //O se trajeron los datos completos
       metadata = {
         totalRecords,
       };
@@ -103,7 +102,7 @@ export class UsersController
 
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
-    // Envío la contraseña, total esta encriptada
+    // Envío la contraseña,  se encuentra encriptada
     return this.user.findFirst({
       where: { id },
       include: {
@@ -125,14 +124,17 @@ export class UsersController
     });
     if (!user) throw new NotFoundException('User not found');
 
-    //# Para cambiar la contraseña, se tiene que enviar la propiedad old_password, con la contraseña vieja
+    // Para cambiar la contraseña, se tiene que enviar la propiedad ´´old_password´´, con la contraseña vieja
     if (updateUserDto.old_password) {
-      const same = bcrypt.compareSync(
+      // Verificamos que la contraseña vieja sea correcta
+      const samePassword = bcrypt.compareSync(
         updateUserDto.old_password,
         user.password,
       );
-      if (!same) throw new UnauthorizedException('Wrong password');
-      // Hasheamos las contraseña nueva
+
+      if (!samePassword) throw new UnauthorizedException('Wrong password');
+
+      // Hasheamos (Convierte los datos en un formato ilegible usando una clave de encriptación) las contraseña nueva
       const hashPassword = bcrypt.hashSync(updateUserDto.password, 12);
       // Creamos el objeto parcial para guardar los registros que se modifican
       //Mandamos todo
@@ -161,14 +163,14 @@ export class UsersController
               create:
                 updateCityID.length > 0
                   ? updateCityID.map((c) => {
-                      return { cityID: c };
-                    })
+                    return { cityID: c };
+                  })
                   : undefined,
               deleteMany:
                 deletedCityID.length > 0
                   ? deletedCityID.map((c) => {
-                      return { cityID: c };
-                    })
+                    return { cityID: c };
+                  })
                   : undefined,
             },
           },
